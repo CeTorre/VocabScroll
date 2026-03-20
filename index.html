@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>VocabScroll · DE→ES</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f; --card-bg: #1a1a1a; --card-border: #2a2a2a;
+    --text-primary: #f0f0f0; --text-secondary: #888;
+    --accent: #6c63ff; --green: #4ade80; --red: #f87171;
+    --yellow: #fbbf24; --cyan: #4dd9e0; --orange: #fb923c;
+    --radius: 20px; --swipe-hint-opacity: 0;
+  }
+  html, body {
+    height: 100%; overflow: hidden; background: var(--bg); color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none;
+  }
+
+  /* ══ PROFILE OVERLAY ══ */
+  #profile-overlay {
+    position: fixed; inset: 0; z-index: 1000; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 28px 24px; gap: 0; overflow-y: auto;
+  }
+  #profile-overlay.hidden { display: none; }
+  .profile-logo { font-size: 30px; font-weight: 900; margin-bottom: 4px; }
+  .profile-logo span { color: var(--accent); }
+  .profile-tagline { font-size: 13px; color: var(--text-secondary); margin-bottom: 28px; }
+  .profile-section-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-secondary); align-self: flex-start; width: 100%; max-width: 360px; margin-bottom: 8px;
+  }
+  .profile-list {
+    width: 100%; max-width: 360px; display: flex; flex-direction: column;
+    gap: 8px; margin-bottom: 16px; max-height: 220px; overflow-y: auto;
+  }
+  .profile-item {
+    display: flex; align-items: center; gap: 12px; background: #1a1a1a;
+    border: 2px solid #2a2a2a; border-radius: 14px; padding: 12px 14px;
+    cursor: pointer; transition: all .2s;
+  }
+  .profile-item:hover { border-color: var(--accent); background: rgba(108,99,255,.1); }
+  .profile-avatar { width: 36px; height: 36px; border-radius: 50%; background: rgba(108,99,255,.15); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .profile-info { flex: 1; min-width: 0; }
+  .profile-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .profile-stats { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .profile-del {
+    width: 26px; height: 26px; border-radius: 50%; background: rgba(248,113,113,.12);
+    border: 1px solid rgba(248,113,113,.25); color: var(--red); font-size: 12px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .2s;
+  }
+  .profile-del:hover { background: var(--red); color: #fff; }
+  .profile-divider { width: 100%; max-width: 360px; display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .profile-divider hr { flex: 1; border: none; border-top: 1px solid #2a2a2a; }
+  .profile-divider span { font-size: 12px; color: var(--text-secondary); }
+  .emoji-row { width: 100%; max-width: 360px; display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .emoji-opt {
+    width: 38px; height: 38px; border-radius: 9px; background: #1a1a1a;
+    border: 2px solid #2a2a2a; font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all .15s;
+  }
+  .emoji-opt.selected { border-color: var(--accent); background: rgba(108,99,255,.2); }
+  .new-profile-form { width: 100%; max-width: 360px; display: flex; gap: 8px; }
+  .new-profile-form input {
+    flex: 1; background: #1a1a1a; border: 2px solid #2a2a2a; border-radius: 12px;
+    color: var(--text-primary); font-size: 15px; padding: 12px 14px; outline: none; transition: border-color .2s; font-family: inherit;
+  }
+  .new-profile-form input:focus { border-color: var(--accent); }
+  .new-profile-form input::placeholder { color: var(--text-secondary); }
+  .new-profile-form button { background: var(--accent); border: none; border-radius: 12px; color: #fff; font-size: 22px; width: 48px; cursor: pointer; transition: all .2s; flex-shrink: 0; }
+  .new-profile-form button:active { transform: scale(.95); }
+
+  /* ══ TOPBAR ══ */
+  #topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top));
+    background: linear-gradient(to bottom, #0f0f0fdd 70%, transparent); gap: 8px;
+  }
+  .topbar-logo {
+    font-size: 14px; font-weight: 700; letter-spacing: -0.5px; color: var(--text-primary);
+    flex-shrink: 0; display: flex; align-items: center; gap: 6px; cursor: pointer;
+  }
+  .topbar-logo span { color: var(--accent); }
+  .topbar-avatar {
+    width: 26px; height: 26px; border-radius: 50%; background: #2a2a2a;
+    display: flex; align-items: center; justify-content: center; font-size: 13px;
+    border: 1px solid #3a3a3a; flex-shrink: 0;
+  }
+  #mode-selector { flex: 1; min-width: 0; display: flex; justify-content: center; }
+
+  /* Dropdown (mobile default) */
+  .mode-dropdown-wrap { position: relative; width: 100%; max-width: 200px; }
+  .mode-dropdown-btn {
+    width: 100%; background: #222; border: none; border-radius: 10px; color: var(--text-primary);
+    font-size: 13px; font-weight: 700; padding: 7px 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer;
+  }
+  .mode-dropdown-btn .chevron { color: var(--text-secondary); font-size: 9px; transition: transform .2s; margin-left: 2px; }
+  .mode-dropdown-btn.open .chevron { transform: rotate(180deg); }
+  .mode-dropdown-menu {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: #1e1e1e; border: 1px solid #333; border-radius: 13px;
+    overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.7); z-index: 300;
+  }
+  .mode-dropdown-menu.open { display: block; }
+  .mode-dropdown-item {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer;
+    font-size: 13px; font-weight: 600; border: none; background: transparent;
+    color: var(--text-secondary); width: 100%; text-align: left; transition: background .15s;
+  }
+  .mode-dropdown-item:hover { background: #2a2a2a; }
+  .mode-dropdown-item .mdot { width: 6px; height: 6px; border-radius: 50%; background: #444; flex-shrink: 0; }
+  .mode-dropdown-item.active { color: var(--text-primary); background: rgba(108,99,255,.1); }
+  .mode-dropdown-item.active .mdot { background: var(--accent); }
+  .mode-dropdown-item.active.verb-m { background: rgba(251,146,60,.1); color: var(--orange); }
+  .mode-dropdown-item.active.verb-m .mdot { background: var(--orange); }
+  .mode-dropdown-item.active.conv-m { background: rgba(77,217,224,.1); color: var(--cyan); }
+  .mode-dropdown-item.active.conv-m .mdot { background: var(--cyan); }
+  .mode-dropdown-item.active.chall-m { background: rgba(251,191,36,.1); color: var(--yellow); }
+  .mode-dropdown-item.active.chall-m .mdot { background: var(--yellow); }
+
+  /* Pill tabs (wide) */
+  .mode-tabs { display: none; gap: 4px; background: #222; border-radius: 10px; padding: 3px; }
+  .mode-tabs button { border: none; background: transparent; color: var(--text-secondary); font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 7px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+  .mode-tabs button.active { background: var(--accent); color: #fff; }
+  .mode-tabs button.active.vm { background: var(--orange); }
+  .mode-tabs button.active.cm { background: var(--cyan); color: #000; }
+  .mode-tabs button.active.chm { background: var(--yellow); color: #000; }
+  @media (min-width: 520px) { .mode-dropdown-wrap { display: none; } .mode-tabs { display: flex; } }
+
+  #progress-wrap { font-size: 11px; color: var(--text-secondary); min-width: 36px; text-align: right; flex-shrink: 0; }
+
+  /* ══ CARDS ══ */
+  #card-viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .card { position: absolute; width: min(92vw, 420px); height: min(72vh, 540px); border-radius: var(--radius); cursor: grab; will-change: transform; transition: none; }
+  .card:active { cursor: grabbing; }
+  .card-inner { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.5s cubic-bezier(.4,0,.2,1); border-radius: var(--radius); }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+  .card-face { position: absolute; inset: 0; border-radius: var(--radius); backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 24px; border: 1px solid var(--card-border); overflow: hidden; }
+  .card-front { background: var(--card-bg); }
+  .card-back { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); transform: rotateY(180deg); }
+  .card-back.vb { background: linear-gradient(135deg, #1a1508 0%, #2d200a 100%); }
+  .card-back.cb { background: linear-gradient(135deg, #0a1a1a 0%, #0d2a2e 100%); }
+  .swipe-left-overlay, .swipe-right-overlay { position: absolute; inset: 0; border-radius: var(--radius); opacity: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 900; letter-spacing: 2px; transition: opacity 0.1s; z-index: 10; }
+  .swipe-left-overlay { background: linear-gradient(135deg, rgba(248,113,113,.3), rgba(248,113,113,.05)); color: var(--red); border: 2px solid var(--red); }
+  .swipe-right-overlay { background: linear-gradient(135deg, rgba(74,222,128,.05), rgba(74,222,128,.3)); color: var(--green); border: 2px solid var(--green); }
+  .card-tag { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; opacity: .7; }
+  .card-word { font-size: clamp(26px, 9vw, 46px); font-weight: 800; letter-spacing: -1px; text-align: center; line-height: 1.1; margin-bottom: 8px; }
+  .card-type { font-size: 11px; color: var(--accent); font-weight: 600; background: rgba(108,99,255,.15); padding: 2px 10px; border-radius: 20px; margin-bottom: 14px; }
+  .card-type.cv { color: var(--cyan); background: rgba(77,217,224,.15); }
+  .card-type.vv { color: var(--orange); background: rgba(251,146,60,.15); }
+  .card-type.chv { color: var(--yellow); background: rgba(251,191,36,.15); }
+  .card-hint { font-size: 12px; color: var(--text-secondary); text-align: center; position: absolute; bottom: 18px; display: flex; align-items: center; gap: 6px; }
+  .card-hint .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-secondary); opacity: .5; }
+  .card-translation { font-size: clamp(24px, 8vw, 42px); font-weight: 800; letter-spacing: -1px; text-align: center; color: var(--accent); margin-bottom: 8px; }
+  .card-translation.cv { color: var(--cyan); }
+  .card-translation.chv { color: var(--yellow); }
+
+  /* Verb conjugation table — Spanish pronouns */
+  .verb-table { width: 100%; max-width: 320px; border-collapse: collapse; margin-bottom: 8px; font-size: 13px; }
+  .verb-table td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .verb-table td:first-child { color: var(--text-secondary); font-weight: 600; font-size: 12px; width: 88px; }
+  .verb-table td:last-child { color: var(--orange); font-weight: 700; }
+  .verb-table tr:last-child td { border-bottom: none; }
+
+  .tts-btn { margin-top: 8px; background: rgba(108,99,255,.2); border: 1px solid rgba(108,99,255,.4); color: var(--accent); border-radius: 50px; padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .2s; }
+  .tts-btn.verb { background: rgba(251,146,60,.2); border-color: rgba(251,146,60,.4); color: var(--orange); }
+  .tts-btn.conv { background: rgba(77,217,224,.2); border-color: rgba(77,217,224,.4); color: var(--cyan); }
+  .tts-btn.chall { background: rgba(251,191,36,.2); border-color: rgba(251,191,36,.4); color: var(--yellow); }
+  .tts-btn:active { transform: scale(.96); }
+
+  .card.behind-1 { transform: scale(0.95) translateY(12px); z-index: 1; pointer-events: none; }
+  .card.behind-2 { transform: scale(0.90) translateY(24px); z-index: 0; pointer-events: none; }
+  .card.active { z-index: 10; }
+
+  /* "Change tense" mini button on verb card back */
+  .change-tense-pill {
+    position: absolute; top: 14px; left: 14px;
+    background: rgba(251,146,60,.15); border: 1px solid rgba(251,146,60,.35); color: var(--orange);
+    font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; cursor: pointer; transition: all .2s; letter-spacing: .3px;
+  }
+  .change-tense-pill:hover { background: rgba(251,146,60,.3); }
+
+  /* ══ SUB-SCREEN ══ */
+  #sub-screen { position: fixed; inset: 0; z-index: 90; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; gap: 14px; background: var(--bg); overflow-y: auto; }
+  #sub-screen.visible { display: flex; }
+  #sub-screen h2 { font-size: 22px; font-weight: 800; text-align: center; }
+  #sub-screen p { font-size: 13px; color: var(--text-secondary); text-align: center; }
+  .tense-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 360px; }
+  .tense-btn { background: #1a1a1a; border: 2px solid #2a2a2a; color: var(--text-primary); border-radius: 14px; padding: 15px 12px; font-size: 13px; font-weight: 700; cursor: pointer; text-align: center; transition: all .2s; line-height: 1.3; }
+  .tense-btn:hover, .tense-btn:active { border-color: var(--orange); background: rgba(251,146,60,.1); color: var(--orange); }
+  .tense-btn .tense-es { font-size: 11px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px; }
+  .challenge-config { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+  .challenge-stat { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; border-radius: 14px; padding: 13px 16px; border: 1px solid #2a2a2a; }
+  .challenge-stat .lbl { font-size: 13px; color: var(--text-secondary); }
+  .challenge-stat .val { font-size: 16px; font-weight: 700; color: var(--yellow); }
+  .count-sel { background: #1a1a1a; border-radius: 14px; padding: 16px; border: 1px solid #2a2a2a; }
+  .count-sel label { font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 10px; }
+  .count-disp { font-size: 28px; font-weight: 800; color: var(--yellow); text-align: center; margin-bottom: 10px; }
+  .count-disp span { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+  .count-slider { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 4px; background: #333; outline: none; }
+  .count-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--yellow); cursor: pointer; box-shadow: 0 2px 8px rgba(251,191,36,.4); }
+  .count-steps { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--text-secondary); }
+  .start-btn { width: 100%; max-width: 360px; padding: 16px; border: none; border-radius: 50px; font-size: 16px; font-weight: 800; cursor: pointer; transition: all .2s; background: var(--accent); color: #fff; }
+  .start-btn:active { transform: scale(.97); }
+  .start-btn.vs { background: var(--orange); }
+  .start-btn.cs { background: var(--yellow); color: #000; }
+
+  /* ══ BOTTOMBAR ══ */
+  #bottombar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; padding: 14px; padding-bottom: max(14px, env(safe-area-inset-bottom)); background: linear-gradient(to top, #0f0f0fdd 70%, transparent); display: flex; justify-content: center; gap: 16px; }
+  .action-btn { width: 54px; height: 54px; border-radius: 50%; border: 2px solid; background: transparent; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; backdrop-filter: blur(8px); }
+  .action-btn:active { transform: scale(.9); }
+  .action-btn:disabled { opacity: 0.35; cursor: default; }
+  .btn-bm { border-color: var(--yellow); color: var(--yellow); background: rgba(251,191,36,.1); }
+  .btn-bm.active { background: var(--yellow); color: #000; }
+  .btn-fl { width: 64px; height: 64px; border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,.15); font-size: 26px; }
+  .btn-fl.vf { border-color: var(--orange); color: var(--orange); background: rgba(251,146,60,.15); }
+  .btn-fl.cf { border-color: var(--cyan); color: var(--cyan); background: rgba(77,217,224,.15); }
+  .btn-fl.chf { border-color: var(--yellow); color: var(--yellow); background: rgba(251,191,36,.15); }
+  .btn-snd { border-color: var(--cyan); color: var(--cyan); background: rgba(77,217,224,.1); }
+
+  /* ══ MISC ══ */
+  #empty-state { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; text-align: center; padding: 40px; color: var(--text-secondary); }
+  #empty-state.visible { display: flex; }
+  #empty-state .em { font-size: 60px; margin-bottom: 8px; }
+  #empty-state h2 { color: var(--text-primary); font-size: 22px; }
+  #empty-state p { font-size: 14px; line-height: 1.6; }
+  #empty-state button { margin-top: 16px; padding: 12px 28px; background: var(--accent); color: #fff; border: none; border-radius: 50px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  #toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: #2a2a2a; color: var(--text-primary); padding: 10px 20px; border-radius: 50px; font-size: 14px; font-weight: 600; pointer-events: none; opacity: 0; transition: all .3s; white-space: nowrap; z-index: 200; border: 1px solid #3a3a3a; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .swipe-hints { position: fixed; bottom: 90px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 24px; pointer-events: none; opacity: var(--swipe-hint-opacity); transition: opacity 1s; z-index: 50; }
+  .swipe-hint-l { color: var(--red); font-size: 12px; font-weight: 700; }
+  .swipe-hint-r { color: var(--green); font-size: 12px; font-weight: 700; }
+  #loading { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 998; gap: 16px; }
+  #loading .title { font-size: 28px; font-weight: 900; }
+  #loading .title span { color: var(--accent); }
+  #loading .sub { color: var(--text-secondary); font-size: 14px; }
+  .spinner { width: 36px; height: 36px; border: 3px solid #2a2a2a; border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #pb-wrap { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 200; }
+  #pb { height: 100%; background: var(--accent); transition: width .3s, background .3s; border-radius: 0 2px 2px 0; }
+  .chall-badge { position: absolute; top: 14px; right: 14px; background: rgba(251,191,36,.15); border: 1px solid rgba(251,191,36,.3); color: var(--yellow); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+  .verb-inf { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- PROFILE OVERLAY -->
+<div id="profile-overlay">
+  <div class="profile-logo">Vocab<span>Scroll</span></div>
+  <div class="profile-tagline">DE → ES · Wähle dein Profil</div>
+  <div class="profile-section-title" id="pl-title">PROFILE</div>
+  <div class="profile-list" id="pl"></div>
+  <div class="profile-divider"><hr><span>Neues Profil erstellen</span><hr></div>
+  <div class="emoji-row" id="er"></div>
+  <div class="new-profile-form">
+    <input type="text" id="pname" placeholder="Dein Name…" maxlength="20" autocomplete="off">
+    <button onclick="createProfile()">+</button>
+  </div>
+</div>
+
+<div id="loading" style="display:none">
+  <div class="title">Vocab<span>Scroll</span></div>
+  <div class="sub">Wörter werden geladen…</div>
+  <div class="spinner"></div>
+</div>
+
+<div id="pb-wrap"><div id="pb" style="width:0%"></div></div>
+
+<div id="topbar">
+  <div class="topbar-logo" onclick="openProfiles()" title="Profil wechseln">
+    <div class="topbar-avatar" id="tav">?</div>
+    Vocab<span>Scroll</span>
+  </div>
+  <div id="mode-selector">
+    <!-- Dropdown (mobile) -->
+    <div class="mode-dropdown-wrap">
+      <button class="mode-dropdown-btn" id="ddbtn" onclick="toggleDD()">
+        <span id="ddicon">📖</span>
+        <span id="ddlabel">Lernen</span>
+        <span class="chevron">▼</span>
+      </button>
+      <div class="mode-dropdown-menu" id="ddmenu">
+        <button class="mode-dropdown-item active" data-m="learn" onclick="setModeDD('learn')"><span class="mdot"></span>📖 Lernen</button>
+        <button class="mode-dropdown-item" data-m="repeat" onclick="setModeDD('repeat')"><span class="mdot"></span>🔁 Wiederholen</button>
+        <button class="mode-dropdown-item verb-m" data-m="verb" onclick="setModeDD('verb')"><span class="mdot"></span>⚡ Verben</button>
+        <button class="mode-dropdown-item conv-m" data-m="conv" onclick="setModeDD('conv')"><span class="mdot"></span>💬 Sätze</button>
+        <button class="mode-dropdown-item chall-m" data-m="challenge" onclick="setModeDD('challenge')"><span class="mdot"></span>🔥 Challenge</button>
+      </div>
+    </div>
+    <!-- Tabs (wide) -->
+    <div class="mode-tabs">
+      <button id="t-learn" class="active" onclick="setMode('learn')">Lernen</button>
+      <button id="t-repeat" onclick="setMode('repeat')">Wieder.</button>
+      <button id="t-verb" onclick="setMode('verb')">Verben</button>
+      <button id="t-conv" onclick="setMode('conv')">Sätze</button>
+      <button id="t-challenge" onclick="setMode('challenge')">Challenge</button>
+    </div>
+  </div>
+  <div id="progress-wrap">0/0</div>
+</div>
+
+<div id="sub-screen"></div>
+
+<div id="card-viewport">
+  <div id="empty-state">
+    <div class="em">📭</div>
+    <h2>Keine Karten</h2>
+    <p>Wische Karten nach links zum Speichern.</p>
+    <button onclick="setMode('learn')">Zum Lernen</button>
+  </div>
+</div>
+
+<div class="swipe-hints">
+  <div class="swipe-hint-l">← Speichern</div>
+  <div class="swipe-hint-r">Weiter →</div>
+</div>
+
+<div id="bottombar">
+  <button class="action-btn btn-bm" id="btn-bm" onclick="toggleBookmark()" title="Zur Wiederholung">★</button>
+  <button class="action-btn btn-fl" id="btn-fl" onclick="flipCard()" title="Karte umdrehen">↻</button>
+  <button class="action-btn btn-snd" id="btn-snd" onclick="speakCurrent()" title="Aussprechen">♪</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════
+const TENSES = [
+  {key:'present',     de:'Präsens',                 es:'Presente',             file:'verbs_present.json'},
+  {key:'preterite',   de:'Präteritum (Indefinido)', es:'Pretérito Indefinido', file:'verbs_preterite.json'},
+  {key:'imperfect',   de:'Imperfekt',               es:'Imperfecto',           file:'verbs_imperfect.json'},
+  {key:'future',      de:'Futur',                   es:'Futuro',               file:'verbs_future.json'},
+  {key:'conditional', de:'Konditional',             es:'Condicional',          file:'verbs_conditional.json'},
+  {key:'perfect',     de:'Perfekt',                 es:'Pretérito Perfecto',   file:'verbs_perfect.json'},
+];
+// Spanish pronouns for verb table (FIX #2)
+const ES_PRON = {
+  'ich':'yo','du':'tú','er/sie':'él/ella','wir':'nosotros','ihr':'vosotros','sie':'ellos/ellas'
+};
+const PRON_ORDER = ['ich','du','er/sie','wir','ihr','sie'];
+const AVATARS = ['😀','🐱','🦊','🐻','🦁','🐸','🦄','🐧','🦋','🌟','🎯','🚀','🎸','🌈','🍀','🔥'];
+const MODE_META = {
+  learn:     {icon:'📖', label:'Lernen'},
+  repeat:    {icon:'🔁', label:'Wiederholen'},
+  verb:      {icon:'⚡', label:'Verben'},
+  conv:      {icon:'💬', label:'Sätze'},
+  challenge: {icon:'🔥', label:'Challenge'},
+};
+
+// ═══════════════════════════════
+// GLOBAL STATE
+// ═══════════════════════════════
+let allWords=[], allConversations=[], verbData={}, meta={};
+let deck=[], deckIndex=0, mode='learn', verbTense=null, cardFlipped=false, challengeCount=20;
+let repeatSet=new Set(), verbRepeatSet=new Set();
+let activeProfileId=null, selectedAvatar=AVATARS[0];
+
+// ═══════════════════════════════
+// STORAGE HELPERS
+// ═══════════════════════════════
+const pk = k => `vs_${activeProfileId}_${k}`;
+const pg = k => { try { return localStorage.getItem(pk(k)); } catch { return null; } };
+const ps = (k,v)=> { try { localStorage.setItem(pk(k),v); } catch {} };
+const gg = k => { try { return localStorage.getItem('vs_g_'+k); } catch { return null; } };
+const gs = (k,v)=> { try { localStorage.setItem('vs_g_'+k,v); } catch {} };
+
+// ═══════════════════════════════
+// PROFILE MANAGEMENT
+// ═══════════════════════════════
+function getProfiles(){ try{return JSON.parse(localStorage.getItem('vs_profiles')||'[]');}catch{return[];} }
+function saveProfiles(a){ try{localStorage.setItem('vs_profiles',JSON.stringify(a));}catch{} }
+
+function renderProfiles(){
+  const profiles = getProfiles();
+  // Emoji row
+  document.getElementById('er').innerHTML = AVATARS.map(e=>
+    `<div class="emoji-opt${e===selectedAvatar?' selected':''}" onclick="pickAvatar('${e}')">${e}</div>`
+  ).join('');
+  // Profile list
+  const pl = document.getElementById('pl');
+  if(!profiles.length){
+    pl.innerHTML = `<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:14px 0">Noch keine Profile</div>`;
+    return;
+  }
+  pl.innerHTML = profiles.map(p=>{
+    let cnt=0; try{const v=localStorage.getItem(`vs_${p.id}_repeat`);if(v)cnt=JSON.parse(v).length||0;}catch{}
+    return `<div class="profile-item" onclick="pickProfile('${p.id}')">
+      <div class="profile-avatar">${p.avatar}</div>
+      <div class="profile-info">
+        <div class="profile-name">${escHtml(p.name)}</div>
+        <div class="profile-stats">⭐ ${cnt} gespeichert</div>
+      </div>
+      <button class="profile-del" onclick="delProfile(event,'${p.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function pickAvatar(e){
+  selectedAvatar=e;
+  document.querySelectorAll('.emoji-opt').forEach(el=>el.classList.toggle('selected',el.textContent===e));
+}
+
+function createProfile(){
+  const input=document.getElementById('pname');
+  const name=input.value.trim();
+  if(!name){input.focus();return;}
+  const profiles=getProfiles();
+  const id='p_'+Date.now();
+  profiles.push({id,name,avatar:selectedAvatar,createdAt:Date.now()});
+  saveProfiles(profiles);
+  input.value='';
+  pickProfile(id);
+}
+
+function delProfile(e,id){
+  e.stopPropagation();
+  const profiles=getProfiles();
+  if(profiles.length===1){showToast('⚠️ Mindestens ein Profil nötig');return;}
+  if(!confirm('Profil wirklich löschen?\nAlle Fortschritte werden entfernt.'))return;
+  const pre=`vs_${id}_`;
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(pre))keys.push(k);}
+  keys.forEach(k=>localStorage.removeItem(k));
+  saveProfiles(profiles.filter(p=>p.id!==id));
+  renderProfiles();
+}
+
+function pickProfile(id){
+  activeProfileId=id;
+  gs('last',id);
+  document.getElementById('profile-overlay').classList.add('hidden');
+  initApp();
+}
+
+function openProfiles(){
+  selectedAvatar=AVATARS[0];
+  document.getElementById('profile-overlay').classList.remove('hidden');
+  renderProfiles();
+}
+
+function updateTopbarAvatar(){
+  const p=getProfiles().find(x=>x.id===activeProfileId);
+  document.getElementById('tav').textContent=p?p.avatar:'?';
+}
+
+function initProfileScreen(){
+  const last=gg('last');
+  const profiles=getProfiles();
+  if(last&&profiles.find(p=>p.id===last)){activeProfileId=last;document.getElementById('profile-overlay').classList.add('hidden');initApp();}
+  else if(profiles.length===1){activeProfileId=profiles[0].id;document.getElementById('profile-overlay').classList.add('hidden');initApp();}
+  else renderProfiles();
+}
+
+// ═══════════════════════════════
+// DATA LOADING
+// ═══════════════════════════════
+async function tryFetch(url){try{const r=await fetch(url);if(!r.ok)return null;return await r.json();}catch{return null;}}
+
+async function initApp(){
+  updateTopbarAvatar();
+  document.getElementById('loading').style.display='flex';
+  const vd=await tryFetch('vocab_de_es.json');
+  if(vd){meta=vd.meta||{};allWords=(vd.words||[]).map(w=>({id:w.id,source:w.de||w.source||'',target:w.es||w.target||'',type:w.type||'',_src:'vocab'}));}
+  else{meta={source_language_name:'Deutsch',target_language_name:'Español'};allWords=demoWords();}
+  const cd=await tryFetch('conversations.json');
+  if(cd){allConversations=(cd.sentences||[]).map(s=>({id:'c'+s.id,source:s.de,target:s.es,type:s.cat||'Konversation',_src:'conv'}));}
+  else allConversations=demoConv();
+  for(const t of TENSES){
+    const d=await tryFetch(t.file);
+    if(d)verbData[t.key]=(d.verbs||[]).map(v=>({id:'v_'+t.key+'_'+v.id,source:v.de,target:v.es_infinitive,forms:v.forms,type:t.de,tenseKey:t.key,_src:'verb'}));
+  }
+  loadPrefs();
+  document.getElementById('loading').style.display='none';
+  startDeck();
+  showSwipeHints();
+}
+
+function demoWords(){return[{id:1,source:'ich',target:'yo',type:'pron',_src:'vocab'},{id:2,source:'du',target:'tú',type:'pron',_src:'vocab'},{id:3,source:'sein',target:'ser/estar',type:'verb',_src:'vocab'},{id:4,source:'gehen',target:'ir',type:'verb',_src:'vocab'},{id:5,source:'das Haus',target:'la casa',type:'noun',_src:'vocab'}];}
+function demoConv(){return[{id:'c1',source:'Guten Morgen!',target:'¡Buenos días!',type:'Begrüßungen',_src:'conv'},{id:'c2',source:'Die Rechnung, bitte.',target:'La cuenta, por favor.',type:'Restaurant',_src:'conv'}];}
+
+// ═══════════════════════════════
+// PERSISTENCE (per-profile)
+// ═══════════════════════════════
+function loadPrefs(){
+  try{
+    const r1=pg('repeat');repeatSet=r1?new Set(JSON.parse(r1)):new Set();
+    const r2=pg('vrepeat');verbRepeatSet=r2?new Set(JSON.parse(r2)):new Set();
+    const cv=pg('ccount');if(cv)challengeCount=parseInt(cv)||20;
+  }catch{}
+}
+function saveRepeat(){ps('repeat',JSON.stringify([...repeatSet]));ps('vrepeat',JSON.stringify([...verbRepeatSet]));}
+const getRS=()=>mode==='verb'?verbRepeatSet:repeatSet;
+
+function loadIdx(){return parseInt(pg('idx_'+mode+(verbTense?'_'+verbTense:'')))||0;}
+function saveIdx(){ps('idx_'+mode+(verbTense?'_'+verbTense:''),deckIndex);}
+
+// ═══════════════════════════════
+// DAILY CHALLENGE
+// ═══════════════════════════════
+function todayStr(){const d=new Date();return`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;}
+function seededRand(seed){let s=seed;return()=>{s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff;};}
+function challengePool(){
+  const p=[];
+  allWords.forEach(w=>p.push({...w}));
+  allConversations.forEach(w=>p.push({...w}));
+  Object.values(verbData).forEach(vs=>vs.forEach(v=>p.push({...v})));
+  return p;
+}
+function dailyDeck(count){
+  const today=todayStr(),ckey='ch_'+today+'_'+count;
+  try{
+    const c=pg(ckey);
+    if(c){const ids=JSON.parse(c);const pool=challengePool();const byId={};pool.forEach(w=>byId[w.id]=w);const found=ids.map(id=>byId[id]).filter(Boolean);if(found.length===count)return found;}
+  }catch{}
+  const pool=challengePool();
+  const dh=today.split('').reduce((a,c)=>((a<<5)-a+c.charCodeAt(0))|0,0);
+  const pHash=(activeProfileId||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  const rand=seededRand(Math.abs(dh)+count*31337+pHash);
+  const arr=[...pool];
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  const chosen=arr.slice(0,Math.min(count,arr.length));
+  try{ps(ckey,JSON.stringify(chosen.map(w=>w.id)));}catch{}
+  return chosen;
+}
+
+// ═══════════════════════════════
+// DECK
+// ═══════════════════════════════
+function buildDeck(){
+  if(mode==='learn')return[...allWords];
+  if(mode==='repeat')return allWords.filter(w=>repeatSet.has(w.id));
+  if(mode==='conv')return[...allConversations];
+  if(mode==='verb'&&verbTense)return[...(verbData[verbTense]||[])];
+  if(mode==='challenge')return dailyDeck(challengeCount);
+  return[];
+}
+
+function startDeck(){
+  deck=buildDeck();
+  deckIndex=Math.min(loadIdx(),Math.max(0,deck.length-1));
+  cardFlipped=false;
+  renderCards();updateProgress();updateFlipBtn();updatePBColor();
+}
+function nextCard(){
+  cardFlipped=false;
+  if(deckIndex<deck.length-1){deckIndex++;saveIdx();renderCards();updateProgress();}
+  else showToast('🎉 Alle Karten geschafft!');
+}
+function prevCard(){
+  if(deckIndex>0){deckIndex--;cardFlipped=false;saveIdx();renderCards();updateProgress();}
+}
+function updateProgress(){
+  const tot=deck.length,cur=tot===0?0:deckIndex+1;
+  document.getElementById('progress-wrap').textContent=`${cur}/${tot}`;
+  document.getElementById('pb').style.width=tot===0?'0%':`${(deckIndex/Math.max(tot-1,1))*100}%`;
+}
+function updatePBColor(){
+  const c={learn:'#6c63ff',repeat:'#6c63ff',verb:'#fb923c',conv:'#4dd9e0',challenge:'#fbbf24'};
+  document.getElementById('pb').style.background=c[mode]||'#6c63ff';
+}
+function updateFlipBtn(){
+  const el=document.getElementById('btn-fl');
+  el.className='action-btn btn-fl';
+  if(mode==='verb')el.classList.add('vf');
+  else if(mode==='conv')el.classList.add('cf');
+  else if(mode==='challenge')el.classList.add('chf');
+}
+
+// ═══════════════════════════════
+// MODE SWITCHING
+// ═══════════════════════════════
+function setMode(m){
+  mode=m;verbTense=null;
+  updateModeUI(m);
+  if(m==='verb')showTenseSelector();
+  else if(m==='challenge')showChallengeConf();
+  else{hideSubScreen();startDeck();}
+}
+function setModeDD(m){closeDD();setMode(m);}
+
+function updateModeUI(m,tenseLabel){
+  // Tabs
+  ['learn','repeat','verb','conv','challenge'].forEach(id=>{
+    const el=document.getElementById('t-'+id);if(!el)return;
+    el.className=id===m?'active':'';
+    if(id===m){if(id==='verb')el.classList.add('vm');if(id==='conv')el.classList.add('cm');if(id==='challenge')el.classList.add('chm');}
+  });
+  // Dropdown items
+  document.querySelectorAll('.mode-dropdown-item').forEach(el=>{
+    const dm=el.dataset.m;
+    el.classList.toggle('active',dm===m);
+  });
+  // Dropdown button label
+  const mm=MODE_META[m]||MODE_META.learn;
+  document.getElementById('ddicon').textContent=mm.icon;
+  document.getElementById('ddlabel').textContent=tenseLabel?mm.label+' · '+tenseLabel:mm.label;
+}
+
+// Dropdown
+function toggleDD(){
+  const btn=document.getElementById('ddbtn'),menu=document.getElementById('ddmenu');
+  const o=menu.classList.contains('open');
+  btn.classList.toggle('open',!o);menu.classList.toggle('open',!o);
+}
+function closeDD(){document.getElementById('ddbtn').classList.remove('open');document.getElementById('ddmenu').classList.remove('open');}
+document.addEventListener('click',e=>{if(!e.target.closest('.mode-dropdown-wrap'))closeDD();});
+
+// ═══════════════════════════════
+// VERB TENSE SELECTOR
+// ═══════════════════════════════
+function showTenseSelector(){
+  const ss=document.getElementById('sub-screen');
+  ss.innerHTML=`
+    <h2>⚡ Konjugationstrainer</h2>
+    <p>Wähle eine Zeitform zum Üben</p>
+    <div class="tense-grid">
+      ${TENSES.map(t=>`<button class="tense-btn" onclick="pickTense('${t.key}')">${t.de}<span class="tense-es">${t.es}</span></button>`).join('')}
+    </div>`;
+  ss.classList.add('visible');hideCards();
+}
+
+function pickTense(key){
+  if(!verbData[key]||!verbData[key].length){showToast('⚠️ Datei nicht gefunden');return;}
+  verbTense=key;
+  const t=TENSES.find(x=>x.key===key);
+  updateModeUI('verb',t?t.de:'');
+  hideSubScreen();startDeck();
+}
+
+// Called from "Zeitform wechseln" button on card back (FIX #2b)
+function changeTense(){verbTense=null;hideSubScreen();showTenseSelector();updateModeUI('verb');}
+
+// ═══════════════════════════════
+// CHALLENGE CONFIG
+// ═══════════════════════════════
+function showChallengeConf(){
+  const pool=challengePool();
+  const ss=document.getElementById('sub-screen');
+  ss.innerHTML=`
+    <h2>🔥 Daily Challenge</h2>
+    <p>Täglich neu ausgewählte Karten aus allen Lernsets</p>
+    <div class="challenge-config">
+      <div class="challenge-stat">
+        <span class="lbl">📅 Datum</span>
+        <span class="val">${new Date().toLocaleDateString('de-DE',{day:'numeric',month:'short'})}</span>
+      </div>
+      <div class="challenge-stat">
+        <span class="lbl">📚 Gesamtpool</span>
+        <span class="val">${pool.length.toLocaleString()} Karten</span>
+      </div>
+      <div class="count-sel">
+        <label>Tägliche Wortanzahl:</label>
+        <div class="count-disp" id="cdisp">${challengeCount} <span>Wörter</span></div>
+        <input type="range" class="count-slider" id="cslider"
+          min="0" max="4" value="${Math.max(0,[10,20,30,40,50].indexOf(challengeCount))}"
+          oninput="updateCC(this.value)">
+        <div class="count-steps"><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span></div>
+      </div>
+    </div>
+    <button class="start-btn cs" onclick="startChallenge()">Challenge starten! 🚀</button>`;
+  ss.classList.add('visible');hideCards();
+}
+function updateCC(i){challengeCount=[10,20,30,40,50][parseInt(i)]||20;ps('ccount',challengeCount);document.getElementById('cdisp').innerHTML=`${challengeCount} <span>Wörter</span>`;}
+function startChallenge(){hideSubScreen();startDeck();}
+
+function hideSubScreen(){const s=document.getElementById('sub-screen');s.classList.remove('visible');s.innerHTML='';}
+function hideCards(){
+  document.getElementById('card-viewport').querySelectorAll('.card').forEach(c=>c.remove());
+  document.getElementById('empty-state').classList.remove('visible');
+  ['btn-bm','btn-fl','btn-snd'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('progress-wrap').textContent='--';
+}
+
+// ═══════════════════════════════
+// RENDER CARDS
+// ═══════════════════════════════
+function renderCards(){
+  const vp=document.getElementById('card-viewport'),es=document.getElementById('empty-state');
+  vp.querySelectorAll('.card').forEach(c=>c.remove());
+  es.classList.remove('visible');
+  if(!deck.length){
+    es.classList.add('visible');
+    const msgs={repeat:'Im Lernmodus links wischen zum Speichern.',challenge:'Tages-Pool konnte nicht geladen werden.'};
+    es.querySelector('p').innerHTML=msgs[mode]||'Keine Karten verfügbar.';
+    ['btn-bm','btn-fl','btn-snd'].forEach(id=>document.getElementById(id).disabled=true);
+    return;
+  }
+  ['btn-bm','btn-fl','btn-snd'].forEach(id=>document.getElementById(id).disabled=false);
+  for(let o=2;o>=0;o--){
+    const idx=deckIndex+o;if(idx>=deck.length)continue;
+    const el=createCard(deck[idx],o===0);
+    el.classList.add(o===0?'active':o===1?'behind-1':'behind-2');
+    vp.appendChild(el);
+  }
+  updateBmBtn();
+}
+
+function createCard(word,interactive){
+  const card=document.createElement('div');
+  card.className='card';card.dataset.id=word.id;
+  const isVerb=word._src==='verb',isConv=word._src==='conv',isChall=mode==='challenge';
+  const tInfo=isVerb?TENSES.find(t=>t.key===word.tenseKey):null;
+
+  // ── Back content ──
+  let back='';
+  if(isVerb&&word.forms){
+    // FIX #2: Use Spanish pronouns (yo, tú, él/ella…) instead of German
+    const rows=PRON_ORDER.map(de=>`<tr><td>${ES_PRON[de]||de}</td><td>${escH(word.forms[de]||'')}</td></tr>`).join('');
+    const fj=JSON.stringify(word.forms).replace(/"/g,'&quot;');
+    back=`
+      <button class="change-tense-pill" onclick="changeTense()">⚡ Zeitform wechseln</button>
+      <div class="card-tag">${tInfo?tInfo.es:'Español'}</div>
+      <div class="verb-inf">${escH(word.target)}</div>
+      <table class="verb-table">${rows}</table>
+      <button class="tts-btn verb" onclick="speakForms(${fj})">🔊 Alle Formen</button>`;
+  }else{
+    const tc=isConv?'conv':isChall?'chall':'';
+    back=`
+      <div class="card-tag">${meta.target_language_name||'Español'}</div>
+      <div class="card-translation${isConv?' cv':isChall?' chv':''}">${escH(word.target)}</div>
+      <button class="tts-btn ${tc}" onclick="speakWord('${escA(word.target)}')">🔊 Aussprechen</button>`;
+  }
+
+  // ── Front type badge ──
+  let ftag='';
+  if(isVerb)ftag=`<div class="card-type vv">${escH(word.type)}</div>`;
+  else if(isConv&&word.type)ftag=`<div class="card-type cv">${escH(word.type)}</div>`;
+  else if(isChall)ftag=`<div class="card-type chv">🔥 Challenge</div>`;
+  else if(word.type)ftag=`<div class="card-type">${escH(word.type)}</div>`;
+
+  const bclass=isVerb?'vb':isConv?'cb':'';
+  const fhint=isVerb?'Tippen für Konjugation':'Scrollen zum Umdrehen';
+
+  card.innerHTML=`
+    <div class="card-inner">
+      <div class="card-face card-front">
+        <div class="swipe-left-overlay">← SPEICHERN</div>
+        <div class="swipe-right-overlay">WEITER →</div>
+        ${isChall?`<div class="chall-badge">🔥 Tag ${new Date().getDate()}</div>`:''}
+        <div class="card-tag">${meta.source_language_name||'Deutsch'}</div>
+        <div class="card-word">${escH(word.source)}</div>
+        ${ftag}
+        <div class="card-hint"><span class="dot"></span>${fhint}<span class="dot"></span></div>
+      </div>
+      <div class="card-face card-back ${bclass}">
+        ${back}
+        <div class="card-hint"><span class="dot"></span>Wische für nächste Karte<span class="dot"></span></div>
+      </div>
+    </div>`;
+  if(interactive)addSwipe(card,word);
+  return card;
+}
+
+const escH=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escA=s=>String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;');
+
+// ═══════════════════════════════
+// SWIPE / DRAG
+// ═══════════════════════════════
+function addSwipe(card,word){
+  let sx=0,sy=0,dragging=false,moved=false,st=0;
+  const lo=card.querySelector('.swipe-left-overlay'),ro=card.querySelector('.swipe-right-overlay'),inn=card.querySelector('.card-inner');
+  const S=(x,y)=>{sx=x;sy=y;dragging=true;moved=false;st=Date.now();inn.style.transition='none';};
+  const M=(x,y)=>{
+    if(!dragging)return;const dx=x-sx,dy=y-sy;
+    if(!moved&&Math.abs(dx)<5&&Math.abs(dy)<5)return;moved=true;
+    if(Math.abs(dx)>Math.abs(dy)*.7){card.style.transform=`translateX(${dx}px) rotate(${dx*.06}deg)`;const r=Math.min(Math.abs(dx)/120,1);lo.style.opacity=dx<0?r:0;ro.style.opacity=dx>0?r:0;}
+    else card.style.transform='';
+  };
+  const E=(x,y)=>{
+    if(!dragging)return;dragging=false;
+    const dx=x-sx,dy=y-sy,dt=Date.now()-st,vx=Math.abs(dx)/dt,vy=dy/dt;
+    inn.style.transition='';card.style.transition='transform 0.3s cubic-bezier(.4,0,.2,1)';lo.style.opacity=0;ro.style.opacity=0;
+    if(!moved){flipCard();card.style.transform='';return;}
+    if(Math.abs(dy)>Math.abs(dx)&&dy>60&&vy>.3){card.style.transform='';flipCard();return;}
+    if(dx<-80||(dx<-30&&vx>.5))swipeOut(card,'left',word);
+    else if(dx>80||(dx>30&&vx>.5))swipeOut(card,'right',word);
+    else card.style.transform='';
+  };
+  card.addEventListener('touchstart',e=>{const t=e.touches[0];S(t.clientX,t.clientY);},{passive:true});
+  card.addEventListener('touchmove',e=>{const t=e.touches[0];M(t.clientX,t.clientY);if(Math.abs(t.clientX-sx)>Math.abs(t.clientY-sy))e.preventDefault();},{passive:false});
+  card.addEventListener('touchend',e=>{const t=e.changedTouches[0];E(t.clientX,t.clientY);});
+  card.addEventListener('mousedown',e=>{S(e.clientX,e.clientY);const mm=ev=>M(ev.clientX,ev.clientY);const mu=ev=>{E(ev.clientX,ev.clientY);window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);};window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu);});
+  card.addEventListener('wheel',e=>{e.preventDefault();if(e.deltaY>30)flipCard();},{passive:false});
+}
+
+function swipeOut(card,dir,word){
+  card.style.transition='transform 0.35s cubic-bezier(.4,0,.2,1), opacity 0.35s';
+  card.style.transform=`translateX(${dir==='left'?'-130vw':'130vw'}) rotate(${dir==='left'?-20:20}deg)`;
+  card.style.opacity='0';
+  const rs=getRS();
+  if(dir==='left'){if(!rs.has(word.id)){rs.add(word.id);saveRepeat();showToast('⭐ Zur Wiederholung gespeichert');}}
+  else if(mode==='repeat'){rs.delete(word.id);saveRepeat();showToast('✓ Aus Wiederholung entfernt');}
+  setTimeout(nextCard,300);
+}
+
+// ═══════════════════════════════
+// FLIP
+// ═══════════════════════════════
+function flipCard(){
+  const ac=document.getElementById('card-viewport').querySelector('.card.active');if(!ac)return;
+  cardFlipped=!cardFlipped;ac.classList.toggle('flipped',cardFlipped);
+  if(cardFlipped){const w=deck[deckIndex];if(w){if(w._src==='verb'&&w.forms)autoSpeak(w.forms['ich']||'');else autoSpeak(w.target);}}
+}
+
+// ═══════════════════════════════
+// BOOKMARK
+// ═══════════════════════════════
+function toggleBookmark(){
+  if(!deck[deckIndex])return;const id=deck[deckIndex].id;const rs=getRS();
+  if(rs.has(id)){rs.delete(id);showToast('Aus Wiederholung entfernt');}else{rs.add(id);showToast('⭐ Gespeichert');}
+  saveRepeat();updateBmBtn();
+}
+function updateBmBtn(){
+  if(!deck[deckIndex])return;
+  document.getElementById('btn-bm').classList.toggle('active',getRS().has(deck[deckIndex].id));
+}
+
+// ═══════════════════════════════
+// TTS
+// ═══════════════════════════════
+const autoSpeakOn=true;
+function speakWord(text){if(!window.speechSynthesis)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='es-ES';u.rate=.85;speechSynthesis.speak(u);}
+function speakForms(forms){
+  if(!window.speechSynthesis)return;speechSynthesis.cancel();
+  const texts=PRON_ORDER.map(p=>forms[p]).filter(Boolean);let i=0;
+  function next(){if(i>=texts.length)return;const u=new SpeechSynthesisUtterance(texts[i++]);u.lang='es-ES';u.rate=.8;u.onend=next;speechSynthesis.speak(u);}
+  next();
+}
+function autoSpeak(t){if(autoSpeakOn&&t)speakWord(t);}
+function speakCurrent(){
+  if(!deck[deckIndex])return;const w=deck[deckIndex];
+  if(!cardFlipped)flipCard();
+  else if(w._src==='verb'&&w.forms)speakForms(w.forms);
+  else speakWord(w.target);
+}
+
+// ═══════════════════════════════
+// SWIPE HINTS
+// ═══════════════════════════════
+function showSwipeHints(){
+  if(pg('hints'))return;
+  document.documentElement.style.setProperty('--swipe-hint-opacity','1');
+  setTimeout(()=>{document.documentElement.style.setProperty('--swipe-hint-opacity','0');ps('hints','1');},3500);
+}
+
+// ═══════════════════════════════
+// TOAST
+// ═══════════════════════════════
+let tTimer;
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tTimer);tTimer=setTimeout(()=>t.classList.remove('show'),2000);}
+
+// ═══════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('profile-overlay').classList.contains('hidden'))return;
+  const ss=document.getElementById('sub-screen');if(ss.classList.contains('visible'))return;
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();nextCard();}
+  else if(e.key==='ArrowLeft'){e.preventDefault();prevCard();}
+  else if(e.key==='ArrowDown'||e.key==='f'){e.preventDefault();flipCard();}
+  else if(e.key==='s'){e.preventDefault();speakCurrent();}
+  else if(e.key==='b'){e.preventDefault();toggleBookmark();}
+  else if(e.key==='Escape')closeDD();
+  else if(e.key==='1')setMode('learn');
+  else if(e.key==='2')setMode('repeat');
+  else if(e.key==='3')setMode('verb');
+  else if(e.key==='4')setMode('conv');
+  else if(e.key==='5')setMode('challenge');
+});
+
+// ═══════════════════════════════
+// INIT
+// ═══════════════════════════════
+document.getElementById('pname').addEventListener('keydown',e=>{if(e.key==='Enter')createProfile();});
+initProfileScreen();
+</script>
+</body>
+</html>
