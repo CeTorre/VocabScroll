@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>VocabScroll · DE→ES</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --card-bg: #1a1a1a;
+    --card-border: #2a2a2a;
+    --text-primary: #f0f0f0;
+    --text-secondary: #888;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --radius: 20px;
+    --swipe-hint-opacity: 0;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* ── Top bar ── */
+  #topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    background: linear-gradient(to bottom, #0f0f0fdd 70%, transparent);
+  }
+
+  #topbar .logo {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+  }
+  #topbar .logo span { color: var(--accent); }
+
+  .mode-tabs {
+    display: flex;
+    gap: 6px;
+    background: #222;
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .mode-tabs button {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .mode-tabs button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  #progress-wrap {
+    font-size: 12px;
+    color: var(--text-secondary);
+    min-width: 48px;
+    text-align: right;
+  }
+
+  /* ── Card stack ── */
+  #card-viewport {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .card {
+    position: absolute;
+    width: min(92vw, 420px);
+    height: min(72vh, 540px);
+    border-radius: var(--radius);
+    cursor: grab;
+    will-change: transform;
+    transition: none;
+  }
+  .card:active { cursor: grabbing; }
+
+  /* perspective wrapper for flip */
+  .card-inner {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(.4,0,.2,1);
+    border-radius: var(--radius);
+  }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 28px;
+    border: 1px solid var(--card-border);
+    overflow: hidden;
+  }
+
+  .card-front {
+    background: var(--card-bg);
+  }
+
+  .card-back {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    transform: rotateY(180deg);
+  }
+
+  /* Swipe overlays */
+  .swipe-left-overlay, .swipe-right-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    opacity: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    transition: opacity 0.1s;
+    z-index: 10;
+  }
+  .swipe-left-overlay {
+    background: linear-gradient(135deg, rgba(248,113,113,.3), rgba(248,113,113,.05));
+    color: var(--red);
+    border: 2px solid var(--red);
+  }
+  .swipe-right-overlay {
+    background: linear-gradient(135deg, rgba(74,222,128,.05), rgba(74,222,128,.3));
+    color: var(--green);
+    border: 2px solid var(--green);
+  }
+
+  /* Card content */
+  .card-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    opacity: .7;
+  }
+
+  .card-word {
+    font-size: clamp(32px, 10vw, 52px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    text-align: center;
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+
+  .card-type {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    background: rgba(108,99,255,.15);
+    padding: 2px 10px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+
+  .card-hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    position: absolute;
+    bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-hint .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-secondary); opacity: .5; }
+
+  /* Translation (back) */
+  .card-translation {
+    font-size: clamp(30px, 9vw, 48px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    text-align: center;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .tts-btn {
+    margin-top: 20px;
+    background: rgba(108,99,255,.2);
+    border: 1px solid rgba(108,99,255,.4);
+    color: var(--accent);
+    border-radius: 50px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all .2s;
+  }
+  .tts-btn:hover { background: rgba(108,99,255,.35); }
+  .tts-btn:active { transform: scale(.96); }
+
+  /* Stacked cards behind */
+  .card.behind-1 {
+    transform: scale(0.95) translateY(12px);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .card.behind-2 {
+    transform: scale(0.90) translateY(24px);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .card.active { z-index: 10; }
+
+  /* ── Bottom bar ── */
+  #bottombar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, #0f0f0fdd 70%, transparent);
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .action-btn {
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    border: 2px solid;
+    background: transparent;
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s;
+    backdrop-filter: blur(8px);
+  }
+  .action-btn:active { transform: scale(.9); }
+
+  .btn-bookmark {
+    border-color: var(--yellow);
+    color: var(--yellow);
+    background: rgba(251,191,36,.1);
+  }
+  .btn-bookmark.active {
+    background: var(--yellow);
+    color: #000;
+  }
+
+  .btn-flip {
+    width: 64px; height: 64px;
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(108,99,255,.15);
+    font-size: 26px;
+  }
+
+  .btn-sound {
+    border-color: #4dd9e0;
+    color: #4dd9e0;
+    background: rgba(77,217,224,.1);
+  }
+
+  /* ── Empty state ── */
+  #empty-state {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+  }
+  #empty-state.visible { display: flex; }
+  #empty-state .emoji { font-size: 60px; margin-bottom: 8px; }
+  #empty-state h2 { color: var(--text-primary); font-size: 22px; }
+  #empty-state p { font-size: 14px; line-height: 1.6; }
+  #empty-state button {
+    margin-top: 16px;
+    padding: 12px 28px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #2a2a2a;
+    color: var(--text-primary);
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    pointer-events: none;
+    opacity: 0;
+    transition: all .3s;
+    white-space: nowrap;
+    z-index: 200;
+    border: 1px solid #3a3a3a;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── Swipe hint arrows ── */
+  .swipe-hints {
+    position: fixed;
+    bottom: 90px;
+    left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 24px;
+    pointer-events: none;
+    opacity: var(--swipe-hint-opacity);
+    transition: opacity 1s;
+    z-index: 50;
+  }
+  .swipe-hint-left { color: var(--red); font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+  .swipe-hint-right { color: var(--green); font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+
+  /* ── Loading screen ── */
+  #loading {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    gap: 16px;
+  }
+  #loading .title { font-size: 28px; font-weight: 900; }
+  #loading .title span { color: var(--accent); }
+  #loading .subtitle { color: var(--text-secondary); font-size: 14px; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid #2a2a2a;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Progress bar */
+  #progress-bar-wrap {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    z-index: 200;
+  }
+  #progress-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width .3s;
+    border-radius: 0 2px 2px 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="title">Vocab<span>Scroll</span></div>
+  <div class="subtitle">DE → ES wird geladen…</div>
+  <div class="spinner"></div>
+</div>
+
+<div id="progress-bar-wrap"><div id="progress-bar" style="width:0%"></div></div>
+
+<div id="topbar">
+  <div class="logo">Vocab<span>Scroll</span></div>
+  <div class="mode-tabs">
+    <button id="btn-mode-learn" class="active" onclick="setMode('learn')">Lernen</button>
+    <button id="btn-mode-repeat" onclick="setMode('repeat')">Wiederholen</button>
+  </div>
+  <div id="progress-wrap">0/0</div>
+</div>
+
+<div id="card-viewport">
+  <div id="empty-state">
+    <div class="emoji">📭</div>
+    <h2>Keine Karten</h2>
+    <p>Wische Karten nach links, um sie hier<br>zur Wiederholung zu speichern.</p>
+    <button onclick="setMode('learn')">Zum Lernen</button>
+  </div>
+</div>
+
+<div class="swipe-hints">
+  <div class="swipe-hint-left">← Speichern</div>
+  <div class="swipe-hint-right">Weiter →</div>
+</div>
+
+<div id="bottombar">
+  <button class="action-btn btn-bookmark" id="btn-bookmark" onclick="toggleBookmark()" title="Zur Wiederholung">★</button>
+  <button class="action-btn btn-flip" id="btn-flip" onclick="flipCard()" title="Karte umdrehen">↻</button>
+  <button class="action-btn btn-sound" id="btn-sound" onclick="speakCurrent()" title="Aussprechen">♪</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let allWords = [];
+let meta = {};
+let deck = [];        // current active deck (shuffled)
+let deckIndex = 0;
+let mode = 'learn';   // 'learn' | 'repeat'
+let repeatSet = new Set(); // IDs in repeat folder
+let cardFlipped = false;
+
+// DOM refs
+const viewport = document.getElementById('card-viewport');
+const emptyState = document.getElementById('empty-state');
+const progressWrap = document.getElementById('progress-wrap');
+const progressBar = document.getElementById('progress-bar');
+const btnBookmark = document.getElementById('btn-bookmark');
+const loading = document.getElementById('loading');
+
+// ─────────────────────────────────────────────
+// LOAD VOCAB
+// ─────────────────────────────────────────────
+async function loadVocab() {
+  try {
+    const res = await fetch('vocab_de_es.json');
+    if (!res.ok) throw new Error('Not found');
+    const data = await res.json();
+    meta = data.meta || {};
+    allWords = data.words || [];
+    // normalise keys: support both {de,es} and {source,target}
+    allWords = allWords.map(w => ({
+      id: w.id,
+      source: w.de || w.source || '',
+      target: w.es || w.target || '',
+      type: w.type || ''
+    }));
+  } catch(e) {
+    // Demo fallback with 20 words
+    console.warn('vocab_de_es.json not found, using demo data');
+    meta = { source_language_name: 'Deutsch', target_language_name: 'Español' };
+    allWords = [
+      {id:1,source:'ich',target:'yo',type:'pron'},
+      {id:2,source:'du',target:'tú',type:'pron'},
+      {id:3,source:'er',target:'él',type:'pron'},
+      {id:4,source:'wir',target:'nosotros',type:'pron'},
+      {id:5,source:'sein',target:'ser / estar',type:'verb'},
+      {id:6,source:'haben',target:'tener',type:'verb'},
+      {id:7,source:'das Haus',target:'la casa',type:'noun'},
+      {id:8,source:'die Zeit',target:'el tiempo',type:'noun'},
+      {id:9,source:'gut',target:'bueno',type:'adj'},
+      {id:10,source:'groß',target:'grande',type:'adj'},
+      {id:11,source:'gehen',target:'ir',type:'verb'},
+      {id:12,source:'kommen',target:'venir',type:'verb'},
+      {id:13,source:'das Kind',target:'el niño',type:'noun'},
+      {id:14,source:'die Frau',target:'la mujer',type:'noun'},
+      {id:15,source:'der Mann',target:'el hombre',type:'noun'},
+      {id:16,source:'ja',target:'sí',type:'adv'},
+      {id:17,source:'nein',target:'no',type:'adv'},
+      {id:18,source:'danke',target:'gracias',type:'phrase'},
+      {id:19,source:'bitte',target:'por favor',type:'phrase'},
+      {id:20,source:'die Liebe',target:'el amor',type:'noun'},
+    ];
+  }
+  loadRepeatSet();
+  startDeck();
+  loading.style.display = 'none';
+  showSwipeHints();
+}
+
+// ─────────────────────────────────────────────
+// PERSISTENCE
+// ─────────────────────────────────────────────
+function loadRepeatSet() {
+  try {
+    const saved = localStorage.getItem('vocabscroll_repeat');
+    if (saved) repeatSet = new Set(JSON.parse(saved));
+  } catch(e) {}
+}
+function saveRepeatSet() {
+  try {
+    localStorage.setItem('vocabscroll_repeat', JSON.stringify([...repeatSet]));
+  } catch(e) {}
+}
+function loadDeckIndex() {
+  try { return parseInt(localStorage.getItem('vocabscroll_index_' + mode)) || 0; } catch(e) { return 0; }
+}
+function saveDeckIndex() {
+  try { localStorage.setItem('vocabscroll_index_' + mode, deckIndex); } catch(e) {}
+}
+
+// ─────────────────────────────────────────────
+// DECK
+// ─────────────────────────────────────────────
+function buildDeck() {
+  if (mode === 'learn') {
+    return [...allWords];
+  } else {
+    return allWords.filter(w => repeatSet.has(w.id));
+  }
+}
+
+function startDeck() {
+  deck = buildDeck();
+  deckIndex = Math.min(loadDeckIndex(), Math.max(0, deck.length - 1));
+  cardFlipped = false;
+  renderCards();
+  updateProgress();
+}
+
+function nextCard() {
+  cardFlipped = false;
+  if (deckIndex < deck.length - 1) {
+    deckIndex++;
+    saveDeckIndex();
+    renderCards();
+    updateProgress();
+  } else {
+    showToast('🎉 Alle Karten geschafft!');
+  }
+}
+
+function prevCard() {
+  if (deckIndex > 0) {
+    deckIndex--;
+    cardFlipped = false;
+    saveDeckIndex();
+    renderCards();
+    updateProgress();
+  }
+}
+
+function updateProgress() {
+  const total = deck.length;
+  const cur = total === 0 ? 0 : deckIndex + 1;
+  progressWrap.textContent = `${cur}/${total}`;
+  progressBar.style.width = total === 0 ? '0%' : `${(deckIndex / Math.max(total - 1, 1)) * 100}%`;
+}
+
+// ─────────────────────────────────────────────
+// RENDER CARDS
+// ─────────────────────────────────────────────
+function renderCards() {
+  // Remove old cards
+  viewport.querySelectorAll('.card').forEach(c => c.remove());
+  emptyState.classList.remove('visible');
+
+  if (deck.length === 0) {
+    emptyState.classList.add('visible');
+    btnBookmark.disabled = true;
+    document.getElementById('btn-flip').disabled = true;
+    document.getElementById('btn-sound').disabled = true;
+    return;
+  }
+
+  btnBookmark.disabled = false;
+  document.getElementById('btn-flip').disabled = false;
+  document.getElementById('btn-sound').disabled = false;
+
+  // Render stack: current + up to 2 behind
+  for (let offset = 2; offset >= 0; offset--) {
+    const idx = deckIndex + offset;
+    if (idx >= deck.length) continue;
+    const word = deck[idx];
+    const el = createCardEl(word, offset === 0);
+    if (offset === 0) el.classList.add('active');
+    else if (offset === 1) el.classList.add('behind-1');
+    else el.classList.add('behind-2');
+    viewport.appendChild(el);
+  }
+
+  updateBookmarkBtn();
+}
+
+function createCardEl(word, interactive) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.id = word.id;
+
+  const inBook = repeatSet.has(word.id);
+
+  card.innerHTML = `
+    <div class="card-inner">
+      <div class="card-face card-front">
+        <div class="swipe-left-overlay">← SPEICHERN</div>
+        <div class="swipe-right-overlay">WEITER →</div>
+        <div class="card-tag">${meta.source_language_name || 'Deutsch'}</div>
+        <div class="card-word">${escHtml(word.source)}</div>
+        ${word.type ? `<div class="card-type">${escHtml(word.type)}</div>` : ''}
+        <div class="card-hint"><span class="dot"></span> Scrollen zum Umdrehen <span class="dot"></span></div>
+      </div>
+      <div class="card-face card-back">
+        <div class="card-tag">${meta.target_language_name || 'Español'}</div>
+        <div class="card-translation">${escHtml(word.target)}</div>
+        <button class="tts-btn" onclick="speakWord('${escAttr(word.target)}')">
+          🔊 Aussprechen
+        </button>
+        <div class="card-hint"><span class="dot"></span> Wische für nächste Karte <span class="dot"></span></div>
+      </div>
+    </div>
+  `;
+
+  if (interactive) {
+    addSwipeListeners(card, word);
+  }
+
+  return card;
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+
+// ─────────────────────────────────────────────
+// SWIPE / DRAG
+// ─────────────────────────────────────────────
+function addSwipeListeners(card, word) {
+  let startX = 0, startY = 0;
+  let curX = 0, curY = 0;
+  let dragging = false;
+  let moved = false;
+  let startTime = 0;
+
+  const leftOverlay = card.querySelector('.swipe-left-overlay');
+  const rightOverlay = card.querySelector('.swipe-right-overlay');
+  const inner = card.querySelector('.card-inner');
+
+  function onStart(x, y) {
+    startX = x; startY = y;
+    curX = x; curY = y;
+    dragging = true;
+    moved = false;
+    startTime = Date.now();
+    inner.style.transition = 'none';
+    card.querySelector('.card-inner').style.transition = 'none';
+  }
+
+  function onMove(x, y) {
+    if (!dragging) return;
+    const dx = x - startX;
+    const dy = y - startY;
+
+    if (!moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+    moved = true;
+
+    curX = x; curY = y;
+
+    // Only horizontal swiping for card navigation (unless small dx)
+    if (Math.abs(dx) > Math.abs(dy) * 0.7) {
+      const rot = dx * 0.06;
+      card.style.transform = `translateX(${dx}px) rotate(${rot}deg)`;
+
+      const ratio = Math.min(Math.abs(dx) / 120, 1);
+      if (dx < 0) {
+        leftOverlay.style.opacity = ratio;
+        rightOverlay.style.opacity = 0;
+      } else {
+        rightOverlay.style.opacity = ratio;
+        leftOverlay.style.opacity = 0;
+      }
+    } else {
+      // Vertical: flip gesture
+      card.style.transform = '';
+    }
+  }
+
+  function onEnd(x, y) {
+    if (!dragging) return;
+    dragging = false;
+
+    const dx = x - startX;
+    const dy = y - startY;
+    const dt = Date.now() - startTime;
+    const velX = Math.abs(dx) / dt;
+    const velY = dy / dt;
+
+    inner.style.transition = '';
+    card.style.transition = 'transform 0.3s cubic-bezier(.4,0,.2,1)';
+    leftOverlay.style.opacity = 0;
+    rightOverlay.style.opacity = 0;
+
+    if (!moved) {
+      // Tap: flip
+      flipCard();
+      card.style.transform = '';
+      return;
+    }
+
+    // Vertical downward fast swipe → flip
+    if (Math.abs(dy) > Math.abs(dx) && dy > 60 && velY > 0.3) {
+      card.style.transform = '';
+      flipCard();
+      return;
+    }
+
+    const threshold = 80;
+    const velThreshold = 0.5;
+
+    if (dx < -threshold || (dx < -30 && velX > velThreshold)) {
+      // Swipe left: add to repeat
+      swipeOut(card, 'left', word);
+    } else if (dx > threshold || (dx > 30 && velX > velThreshold)) {
+      // Swipe right: next card (remove from repeat if in repeat mode)
+      swipeOut(card, 'right', word);
+    } else {
+      card.style.transform = '';
+    }
+  }
+
+  // Touch
+  card.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    onStart(t.clientX, t.clientY);
+  }, { passive: true });
+
+  card.addEventListener('touchmove', e => {
+    const t = e.touches[0];
+    onMove(t.clientX, t.clientY);
+    // prevent scroll when swiping horizontally
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (Math.abs(dx) > Math.abs(dy)) e.preventDefault();
+  }, { passive: false });
+
+  card.addEventListener('touchend', e => {
+    const t = e.changedTouches[0];
+    onEnd(t.clientX, t.clientY);
+  });
+
+  // Mouse
+  card.addEventListener('mousedown', e => {
+    onStart(e.clientX, e.clientY);
+    const onMMove = ev => onMove(ev.clientX, ev.clientY);
+    const onMUp = ev => { onEnd(ev.clientX, ev.clientY); window.removeEventListener('mousemove', onMMove); window.removeEventListener('mouseup', onMUp); };
+    window.addEventListener('mousemove', onMMove);
+    window.addEventListener('mouseup', onMUp);
+  });
+
+  // Wheel / scroll (for desktop doomscroll feel)
+  card.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (e.deltaY > 30) flipCard();
+    else if (e.deltaY < -30 && cardFlipped) { /* already flipped, go next */ }
+  }, { passive: false });
+}
+
+function swipeOut(card, direction, word) {
+  const outX = direction === 'left' ? '-130vw' : '130vw';
+  card.style.transition = 'transform 0.35s cubic-bezier(.4,0,.2,1), opacity 0.35s';
+  card.style.transform = `translateX(${outX}) rotate(${direction === 'left' ? -20 : 20}deg)`;
+  card.style.opacity = '0';
+
+  if (direction === 'left') {
+    // Add to repeat
+    if (!repeatSet.has(word.id)) {
+      repeatSet.add(word.id);
+      saveRepeatSet();
+      showToast('⭐ Zur Wiederholung gespeichert');
+    }
+  } else {
+    // Remove from repeat if in repeat mode
+    if (mode === 'repeat') {
+      repeatSet.delete(word.id);
+      saveRepeatSet();
+      showToast('✓ Aus Wiederholung entfernt');
+    }
+  }
+
+  setTimeout(() => {
+    nextCard();
+  }, 300);
+}
+
+// ─────────────────────────────────────────────
+// FLIP
+// ─────────────────────────────────────────────
+function flipCard() {
+  const activeCard = viewport.querySelector('.card.active');
+  if (!activeCard) return;
+  cardFlipped = !cardFlipped;
+  activeCard.classList.toggle('flipped', cardFlipped);
+
+  if (cardFlipped) {
+    const word = deck[deckIndex];
+    if (word) autoSpeak(word.target);
+  }
+}
+
+// ─────────────────────────────────────────────
+// BOOKMARK BUTTON
+// ─────────────────────────────────────────────
+function toggleBookmark() {
+  if (!deck[deckIndex]) return;
+  const id = deck[deckIndex].id;
+  if (repeatSet.has(id)) {
+    repeatSet.delete(id);
+    showToast('Aus Wiederholung entfernt');
+  } else {
+    repeatSet.add(id);
+    showToast('⭐ Zur Wiederholung gespeichert');
+  }
+  saveRepeatSet();
+  updateBookmarkBtn();
+}
+
+function updateBookmarkBtn() {
+  if (!deck[deckIndex]) return;
+  const inBook = repeatSet.has(deck[deckIndex].id);
+  btnBookmark.classList.toggle('active', inBook);
+}
+
+// ─────────────────────────────────────────────
+// TTS
+// ─────────────────────────────────────────────
+let autoSpeakEnabled = true;
+
+function speakWord(text) {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'es-ES';
+  utt.rate = 0.85;
+  utt.pitch = 1;
+  speechSynthesis.speak(utt);
+}
+
+function autoSpeak(text) {
+  if (!autoSpeakEnabled) return;
+  speakWord(text);
+}
+
+function speakCurrent() {
+  if (!deck[deckIndex]) return;
+  const word = deck[deckIndex];
+  // If card is showing front, flip first then speak
+  if (!cardFlipped) {
+    flipCard();
+  } else {
+    speakWord(word.target);
+  }
+}
+
+// ─────────────────────────────────────────────
+// MODE
+// ─────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-mode-learn').classList.toggle('active', m === 'learn');
+  document.getElementById('btn-mode-repeat').classList.toggle('active', m === 'repeat');
+  startDeck();
+}
+
+// ─────────────────────────────────────────────
+// SWIPE HINTS (show briefly on first load)
+// ─────────────────────────────────────────────
+function showSwipeHints() {
+  const shown = localStorage.getItem('vocabscroll_hints');
+  if (shown) return;
+  document.documentElement.style.setProperty('--swipe-hint-opacity', '1');
+  setTimeout(() => {
+    document.documentElement.style.setProperty('--swipe-hint-opacity', '0');
+    localStorage.setItem('vocabscroll_hints', '1');
+  }, 3500);
+}
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ─────────────────────────────────────────────
+// KEYBOARD
+// ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextCard(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); prevCard(); }
+  else if (e.key === 'ArrowDown' || e.key === 'f') { e.preventDefault(); flipCard(); }
+  else if (e.key === 's') { e.preventDefault(); speakCurrent(); }
+  else if (e.key === 'b') { e.preventDefault(); toggleBookmark(); }
+});
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+loadVocab();
+</script>
+</body>
+</html>
