@@ -1,10 +1,8 @@
 # VocabScroll · DE→ES
 
-A mobile-first vocabulary learning app with a TikTok-style swipe interface. Built as a single HTML file — no frameworks, no build step, no dependencies. Just drop the files in a folder and open in a browser.
+A mobile-first vocabulary learning app with a TikTok-style swipe interface. Built as a single HTML file — no frameworks, no build step, no dependencies. 
 
-![VocabScroll](https://img.shields.io/badge/VocabScroll-DE→ES-6c63ff?style=for-the-badge)
-![HTML](https://img.shields.io/badge/HTML-Single%20File-orange?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+**→ [View the app](https://cetorre.github.io/VocabScroll/)** 
 
 ---
 
